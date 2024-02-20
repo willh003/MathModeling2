@@ -1,4 +1,4 @@
-
+import os 
 def loadMulti(imName, *args):
     # Loading multispectral image and an annotation
     # 
@@ -34,14 +34,14 @@ def loadMulti(imName, *args):
            
         
     # load the multispectral image
-    im = sio.loadmat(dirPath+imName)
+    im = sio.loadmat(os.path.join(dirPath, imName))
     multiIm = im['immulti']
         
     # make annotation image of zeros
     annotationIm = np.zeros([multiIm.shape[0],multiIm.shape[1],3],dtype=bool)
     
     # read the mask image
-    aIm = imread(dirPath+annotationName)
+    aIm = imread(os.path.join(dirPath,annotationName))
     
     annotationIm = aIm.astype(int)
     # put in ones
@@ -136,12 +136,11 @@ def showHistograms(multiIm, pixId, *args):
                         h[multiIm[j,k,band]+1,i] = h[multiIm[j,k,band]+1,i] + 1
 
     else:
-        h = np.zeros[256,1]
+        h = np.zeros([256,1])
         for i in range(0,pixId.shape[0]):
             h[multiIm[pixId[i,0],pixId[i,1],band]+1] = h[multiIm[pixId[i,1],pixId[i,2],band]+1] + 1
     
-    print(np.shape(h))
-    print(h)
+
     if showOn:
         hId = np.where(np.sum(h,1) > 0)
         fId = np.maximum(np.min(hId)-3,1)
