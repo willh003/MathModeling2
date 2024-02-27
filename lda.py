@@ -25,6 +25,40 @@ def load_data(df):
 
     return np.stack(all_multis, axis=0), np.stack(all_anns, axis=0), np.stack(all_rgbs, axis=0)
 
+def model_metrics(model, test_data, labels):
+    """
+    Returns a list containing the metrics of the model evaluated on test_data
+    Metrics supported are 
+        - Accuracy
+        - Precision (2 class)
+        - Recall (2 class)
+    Accuracy is defined as (TP + TN) / (TP + TN + FP + FN)
+    """
+    _, _, n_classes = labels.shape
+
+    trues = 0
+    falses = 0
+
+    for i in range(n_classes):
+        label = labels[:, :, i]
+        pix_vals, _, _ = getPix(test_data, label)
+
+        preds = model.forward(pix_vals)
+        n_correct = (preds == i).sum()
+        n_incorrect = (preds != i).sum()
+        trues += n_correct
+        falses += n_incorrect
+
+        if i == 0:
+            fn = falses
+        if i == 1:
+            precision = trues / (trues + falses)
+            recall = trues / (trues + fn)
+    accuracy = trues / (trues + falses)
+    f1 = 2 * (precision * recall) / (precision + recall)
+    metric_vals = {'accuracy': accuracy, 'precision': precision, 'recall': recall, 'f1': f1}
+    return metric_vals
+
 class MultiBandGaussianDiscriminant():
     """
     A gaussian discriminant model for multiple spectral bands
@@ -50,8 +84,7 @@ class MultiBandGaussianDiscriminant():
         pooled_cov = np.zeros((multi.shape[-1], multi.shape[-1]))
         for i in range(c):
             ann = anns[:, :, i]
-            pix_vals, _,_ = getPix(multi, ann)
-            
+            pix_vals, r,c = getPix(multi, ann)
             mu = np.mean(pix_vals, axis=0)
             cov = np.cov(pix_vals.T)
             mus.append(mu)
@@ -66,6 +99,8 @@ class MultiBandGaussianDiscriminant():
         if self.pooled_cov:
             self.cov = pooled_cov
     
+
+
     def multivariate_gaussian_eval(self, mu, cov, x):
         """
         Returns the multivariate gaussian probability of x given mu, cov
@@ -92,17 +127,22 @@ class MultiBandGaussianDiscriminant():
     def forward(self, spectrum, prior=None):
         """
         Returns the class predictions given gaussian discriminant parameters mus, covs, and prior
+        Spectrum has shape (h, w, l) or (h*w, l)
         """
         ps = []
-        h, w,l = spectrum.shape
+        shape = len(spectrum.shape)
+        if shape == 3:
+            h, w,l = spectrum.shape
+            spectrum = spectrum.reshape(-1, spectrum.shape[-1])
         
         for mu, p_i in zip(self.mus, self.prior):
-            p = self.multivariate_gaussian_discriminant(mu, self.cov, spectrum.reshape(-1, spectrum.shape[-1]), p_i)
+            p = self.multivariate_gaussian_discriminant(mu, self.cov, spectrum, p_i)
             ps.append(p)
         
         classes = np.argmax(np.stack(ps, axis=0), axis=0)
 
-        classes = classes.reshape(h, w)
+        if shape ==3:
+            classes = classes.reshape(h, w)
         return classes
 
 class SingleBandGaussianDiscriminant:
@@ -274,17 +314,21 @@ def multi_band_exp(multis, anns, rgbs, train_img_idx, test_img_idx):
     test_annotations = anns[test_img_idx,:,:,1:] 
     model.fit(multis[train_img_idx], train_annotations)
 
+    metrics = model_metrics(model, multis[test_img_idx], test_annotations)
+
+    print(f'Accuracy on test annotations: {metrics["accuracy"]:.3f}')
+    print(f'F1 score on test annotations: {metrics["f1"]:.3f}')
+
+
     preds = model.forward(multis[test_img_idx])
-
     label_encode = np.argmax(anns[test_img_idx], axis=2)
-
     plot_masked_spectral(rgbs[test_img_idx], preds, label_encode)
 
 def main():
     df='data'
     multis, anns, rgbs = load_data(df)
-
     multi_band_exp(multis, anns, rgbs, 0, 0)
+
     #single_band_exp(multis, anns, band_idx=12, train_img_idx=0, test_img_idx=1)
     #inspect_distributions(multis, anns, 0)
 
