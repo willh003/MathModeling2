@@ -277,14 +277,21 @@ def single_band_exp(multis, anns, band_idx = 0, train_img_idx = 0, test_img_idx 
     train_annotations = anns[train_img_idx,:,:,1:]
     test_annotations = anns[test_img_idx,:,:,1:] 
  
-    single_band = SingleBandGaussianDiscriminant(num_classes=2, update_sigma=False)
-    single_band.fit(multis[train_img_idx], train_annotations, band_idx=band_idx)
+    model = SingleBandGaussianDiscriminant(num_classes=2, update_sigma=False)
+    model.fit(multis[train_img_idx], train_annotations, band_idx=band_idx)
 
-    preds = single_band.forward(multis[test_img_idx, :, :, band_idx])
+    preds = model.forward(multis[test_img_idx, :, :, band_idx])
 
     label_encode = np.argmax(test_annotations, axis=2)
-    thresh = single_band.get_threshold()
+    thresh = model.get_threshold()
     print(f'Decision threshold: {thresh}')
+
+    metrics = model_metrics(model, multis[test_img_idx], test_annotations)
+
+    print(f'Accuracy on test annotations: {metrics["accuracy"]:.3f}')
+    print(f'Precision score on test annotations: {metrics["precision"]:.3f}')
+    print(f'Recall on test annotations: {metrics["recall"]:.3f}')
+    print(f'F1 score on test annotations: {metrics["f1"]:.3f}')
 
     plot_masked_spectral(multis[test_img_idx, :, :, band_idx], preds, label_encode)
     return thresh
@@ -313,25 +320,82 @@ def multi_band_exp(multis, anns, rgbs, train_img_idx, test_img_idx):
     train_annotations = anns[train_img_idx,:,:,1:]
     test_annotations = anns[test_img_idx,:,:,1:] 
     model.fit(multis[train_img_idx], train_annotations)
-
     metrics = model_metrics(model, multis[test_img_idx], test_annotations)
 
     print(f'Accuracy on test annotations: {metrics["accuracy"]:.3f}')
+    print(f'Precision score on test annotations: {metrics["precision"]:.3f}')
+    print(f'Recall on test annotations: {metrics["recall"]:.3f}')
     print(f'F1 score on test annotations: {metrics["f1"]:.3f}')
-
 
     preds = model.forward(multis[test_img_idx])
     label_encode = np.argmax(anns[test_img_idx], axis=2)
     plot_masked_spectral(rgbs[test_img_idx], preds, label_encode)
 
+
+def both_models_all_images_exp(data, anns, rgbs, single_band_idx=0):
+    """
+    Train both models on each day and test on all other days
+    Plot the performance of the different models depending on the training day
+    """
+    multi_accs = []
+    single_accs = []
+    for train_idx in range(len(data)):
+        single_model = SingleBandGaussianDiscriminant(num_classes=2, update_sigma=False)        
+        multi_model = MultiBandGaussianDiscriminant(num_classes=2, 
+                                            feature_dim=data[train_idx].shape[-1], 
+                                            pooled_cov=True,
+                                            prior=np.array([.3,.7]))
+        
+
+        train_annotations = anns[train_idx,:,:,1:]
+        multi_model.fit(data[train_idx], train_annotations)
+        single_model.fit(data[train_idx], train_annotations, band_idx=single_band_idx)
+
+        multi_acc = []
+        single_acc = []
+
+        for test_idx in range(len(data)):
+            if test_idx == train_idx:
+                continue
+            test_annotations = anns[test_idx,:,:,1:]
+
+            multi_metrics = model_metrics(multi_model, data[test_idx], test_annotations)  
+            multi_acc.append(multi_metrics['accuracy'])
+            
+            single_metrics = model_metrics(single_model, data[test_idx], test_annotations)  
+            single_acc.append(single_metrics['accuracy'])
+
+        single_accs.append(single_acc)
+        multi_accs.append(multi_acc)
+
+    single_accs = np.array(single_accs)
+    multi_accs = np.array(multi_accs)
+
+    print('Single and Multi Band Accuracies')
+    print('table[i, j] is accuracy of model trained on day i and tested on day j')
+    print(np.stack((single_accs, multi_accs)))
+
+    plt.plot(range(len(multi_accs)), multi_accs.mean(axis=1), label='Multi Band')
+    plt.plot(range(len(single_accs)), single_accs.mean(axis=1), label='Single Band')
+    plt.xlabel('Training Image Index')
+    plt.ylabel('Average Training Accuracy on Non-Training Images')
+    plt.title('Performance of Single and Multi Band Models on Different Training Days')
+    plt.legend()
+    plt.show()
+
+
+    
 def main():
     df='data'
     multis, anns, rgbs = load_data(df)
-    multi_band_exp(multis, anns, rgbs, 0, 0)
+    #multi_band_exp(multis, anns, rgbs, 0, 0)
 
     #single_band_exp(multis, anns, band_idx=12, train_img_idx=0, test_img_idx=1)
     #inspect_distributions(multis, anns, 0)
 
+
+    # TODO: find the best single_band_idx, and do this experiment with that one
+    both_models_all_images_exp(multis,anns, rgbs, single_band_idx=0)
 
 
 

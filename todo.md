@@ -7,8 +7,9 @@
 **Experiment 2**
 
 - Calculate the threshold value t for all spectral bands for day 1.
-  - TODO: function to find closed form solution for t
+  - DONE - see calculate_threshold()
 - Calculate the error rate for each spectral band.
+  - DONE - see model_metrics()
 - Identify the spectral band, which has the best discriminative properties for meat and fat.
 - Classify the entire image of the salami for day 1, and visualise it.
 
