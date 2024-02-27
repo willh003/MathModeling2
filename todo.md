@@ -33,6 +33,7 @@
 
 **Experiment 4**
 
+- CODE DONE: SEE both_models_all_images_exp()
 - Train the linear discriminant function on day 1, day 6 and so on, and for each day calculate the
   error rate on all the other days.
 - Show the error rate for all days (5 training days x 4 test days = 20 error rates) in an appropriate
@@ -45,4 +46,5 @@
 **Experiment 5**
 
 - Redo experiment 4 but with a prior
+  - Prior already implemented
 - Does it change your estimates?
