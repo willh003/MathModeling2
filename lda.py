@@ -388,14 +388,14 @@ def both_models_all_images_exp(data, anns, rgbs, single_band_idx=0):
 def main():
     df='data'
     multis, anns, rgbs = load_data(df)
-    #multi_band_exp(multis, anns, rgbs, 0, 0)
+    multi_band_exp(multis, anns, rgbs, 0, 0)
 
     #single_band_exp(multis, anns, band_idx=12, train_img_idx=0, test_img_idx=1)
     #inspect_distributions(multis, anns, 0)
 
 
     # TODO: find the best single_band_idx, and do this experiment with that one
-    both_models_all_images_exp(multis,anns, rgbs, single_band_idx=0)
+    #both_models_all_images_exp(multis,anns, rgbs, single_band_idx=0)
 
 
 
